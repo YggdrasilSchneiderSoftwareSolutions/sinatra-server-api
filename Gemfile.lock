@@ -2,7 +2,13 @@ GEM
   remote: https://rubygems.org/
   specs:
     base64 (0.3.0)
+    docker-api (2.4.0)
+      excon (>= 0.64.0)
+      multi_json
+    excon (1.7.1)
+      logger
     logger (1.7.0)
+    multi_json (1.21.2)
     mustermann (3.1.1)
     nio4r (2.7.5)
     puma (8.0.2)
@@ -32,6 +38,7 @@ PLATFORMS
   x86_64-darwin-22
 
 DEPENDENCIES
+  docker-api (>= 2.4)
   puma (>= 8.0.2)
   rackup (>= 2.3.1)
   sinatra (>= 4.2.1)

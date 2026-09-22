@@ -1,6 +1,7 @@
 require 'sinatra'
 require 'sinatra/cross_origin'
 require 'json'
+require 'docker'
 
 require_relative 'extensions/systemwatch'
 
@@ -13,12 +14,17 @@ configure do
   set :allow_credentials, true
   set :max_age, "1728000"
   set :expose_headers, ['Content-Type']
+
+  set :API_TOKEN, ENV['API_TOKEN'] || 'default_token' # Set a default token for testing
 end
 
-helpers do
-  def token_valid?
-    # TODO
-    true
+before '/api/*' do
+  content_type :json
+
+  token = request.env['HTTP_X_API_TOKEN']
+
+  unless token && token == settings.API_TOKEN
+    halt 401, { error: 'No valid token found' }.to_json
   end
 end
 
@@ -26,16 +32,12 @@ get '/favicon.ico' do
   204
 end
 
-get '/' do
+get '/api/system' do
   t = SystemWatch
   "#{t.cpu_usage}% CPU usage, #{t.ram_usage}% RAM usage"
 end
 
-get '/api' do
-  unless token_valid?
-    halt 401, {'Content-Type' => 'text/plain'}, 'No valid token found'
-  end
-  
+get '/api/time' do
   t = Time.now
   return_hash = {
     # ??? :utc_offset => t.
@@ -51,7 +53,43 @@ get '/api' do
     :raw_offset => t.utc_offset
     # TODO Wochentag ausgeben
   }
-  json_object = JSON.generate(return_hash)
+  return_hash.to_json
+end
 
-  [200, { 'Content-Type' => 'application/json' }, json_object]
+get '/api/dockerstats' do
+  begin
+    containers = Docker::Container.all
+    stats = containers.map do |container|
+      # Holt einmaliges Snapshot-Ergebnis (stream: false verhindert kontinuierliche Ausgabe)
+      raw_stats = container.stats(stream: false)
+
+      # CPU-Berechnung, da Docker nur rohe Ticks, Prozent muss berechnet werden
+      cpu_delta = raw_stats['cpu_stats']['cpu_usage']['total_usage'] - raw_stats['precpu_stats']['cpu_usage']['total_usage']
+      system_delta = raw_stats['cpu_stats']['system_cpu_usage'] - raw_stats['precpu_stats']['system_cpu_usage']
+      cpu_percentage = 0.0
+      if system_delta > 0 && cpu_delta > 0
+        # Anzahl der CPU-Kerne berücksichtigen, falls im Payload vorhanden
+        online_cpus = raw_stats['cpu_stats']['online_cpus'] || 1
+        cpu_percentage = ((cpu_delta.to_f / system_delta.to_f) * online_cpus * 100.0).round(2)
+      end
+
+      # RAM-Berechnung
+      memory_usage = (raw_stats['memory_stats']['usage'] / 1024.0 / 1024.0).round(2) # in MB
+      memory_limit = (raw_stats['memory_stats']['limit'] / 1024.0 / 1024.0).round(2) # in MB
+
+      {
+        id: container.id,
+        name: container.info['Names'].first.gsub('/', ''), # Entfernt führenden Slash
+        cpu_percentage: cpu_percentage,
+        memory_usage: memory_usage,
+        memory_limit: memory_limit,
+        status: container.info['State']
+      }
+    end
+
+    stats.to_json
+
+  rescue StandardError => e
+    halt 500, { error: "Error in docker stats: #{e.message}" }.to_json
+  end
 end
