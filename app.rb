@@ -16,10 +16,16 @@ configure do
   set :expose_headers, ['Content-Type']
 
   set :API_TOKEN, ENV['API_TOKEN'] || 'default_token' # Set a default token for testing
+  puts "API_TOKEN is set to: #{settings.API_TOKEN}"
 end
 
 before '/api/*' do
   content_type :json
+
+  if settings.environment == :development
+    puts "Development mode: Skipping token validation"
+    next
+  end
 
   token = request.env['HTTP_X_API_TOKEN']
 
