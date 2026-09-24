@@ -57,6 +57,8 @@ get '/api/time' do
 end
 
 get '/api/dockerstats' do
+  # Der Benutzer, unter dem die Sinatra-App läuft, muss Zugriff auf den Docker-Socket /var/run/docker.sock haben.
+  # Alternativ muss Sinatra als root oder in der docker-Gruppe laufen
   begin
     containers = Docker::Container.all
     stats = containers.map do |container|
