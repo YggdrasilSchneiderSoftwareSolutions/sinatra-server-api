@@ -47,7 +47,7 @@ module SystemWatch
 
   def self.ram_usage
     if @system == 'Linux'
-      if File.exists?("/proc/meminfo")
+      if File.exist?("/proc/meminfo")
         File.open("/proc/meminfo", "r") do |file|
           @result = file.read
         end
