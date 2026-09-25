@@ -10,13 +10,10 @@ configure do
   set :views, __dir__ + '/views'
 
   set :allow_origin, :any
-  set :allow_methods, [:get, :post, :options]
-  set :allow_credentials, true
-  set :max_age, "1728000"
+  set :allow_methods, [:get, :options]
   set :expose_headers, ['Content-Type']
 
   set :API_TOKEN, ENV['API_TOKEN'] || 'default_token' # Set a default token for testing
-  puts "API_TOKEN is set to: #{settings.API_TOKEN}"
 end
 
 before '/api/*' do
@@ -40,7 +37,10 @@ end
 
 get '/api/system' do
   t = SystemWatch
-  "#{t.cpu_usage}% CPU usage, #{t.ram_usage}% RAM usage"
+  {
+    cpu_usage: t.cpu_usage,
+    ram_usage: t.ram_usage
+  }.to_json
 end
 
 get '/api/time' do
